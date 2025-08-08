@@ -20,6 +20,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { useSocket } from "@/lib/socket";
+import RealTimeStatus from "./RealTimeStatus";
+import SocketDebug from "./SocketDebug";
 
 type Plan = {
   id: string;
@@ -115,6 +118,28 @@ export default function Main() {
 
   const currentUser = JSON.parse(localStorage.getItem("user") || "null");
 
+  // Socket.IO setup for real-time voting
+  const {
+    isConnected,
+    sendVote,
+    deleteVote,
+    sendComment,
+    onPlanUpdated,
+    onVoteError,
+    onCommentError,
+    joinPlanRoom,
+  } = useSocket();
+
+  // Join plan rooms for all plans when connected
+  useEffect(() => {
+    if (isConnected && plans.length > 0) {
+      plans.forEach((plan) => {
+        console.log(`Joining room for plan: ${plan.id}`);
+        // We'll handle room joining in the socket hook
+      });
+    }
+  }, [isConnected, plans]);
+
   useEffect(() => {
     fetchPlans().then((data) => {
       console.log("Fetched plans data:", data); // Debug log
@@ -122,6 +147,38 @@ export default function Main() {
       setLoading(false);
     });
   }, []);
+
+  // Listen for real-time plan updates
+  useEffect(() => {
+    if (isConnected) {
+      console.log("🔌 Setting up Socket.IO event listeners");
+
+      // Set up event listeners only once when connected
+      onPlanUpdated((data) => {
+        console.log("📡 Plan updated via Socket.IO:", data);
+        const { planId, plan } = data;
+        console.log(`📡 Received update for plan: ${planId}`);
+
+        setPlans((prevPlans) => {
+          const updatedPlans = prevPlans.map((p) =>
+            p.id === planId ? plan : p
+          );
+          console.log("📡 Updated plans state:", updatedPlans);
+          return updatedPlans;
+        });
+      });
+
+      onVoteError((error) => {
+        console.error("❌ Vote error:", error);
+        alert(error.error || "Vote failed");
+      });
+
+      onCommentError((error) => {
+        console.error("❌ Comment error:", error);
+        alert(error.error || "Comment failed");
+      });
+    }
+  }, [isConnected, onPlanUpdated, onVoteError, onCommentError]); // Add callback dependencies
 
   const handleCommentChange = (planId: string, value: string) => {
     setCommentInputs((prev) => ({ ...prev, [planId]: value }));
@@ -133,25 +190,33 @@ export default function Main() {
     setSubmitting((prev) => ({ ...prev, [planId]: true }));
 
     try {
-      const response = await fetch("/api/comments", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          text: commentInputs[planId],
-          userId: currentUser.id,
-          planId,
-        }),
-      });
-
-      if (response.ok) {
+      if (isConnected) {
+        // Use Socket.IO for real-time comments
+        joinPlanRoom(planId);
+        sendComment(commentInputs[planId], currentUser.id, planId);
         setCommentInputs((prev) => ({ ...prev, [planId]: "" }));
-        const updatedPlans = await fetchPlans();
-        setPlans(updatedPlans);
       } else {
-        const data = await response.json();
-        alert(data.error || "Failed to post comment");
+        // Fallback to API if Socket.IO is not connected
+        const response = await fetch("/api/comments", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            text: commentInputs[planId],
+            userId: currentUser.id,
+            planId,
+          }),
+        });
+
+        if (response.ok) {
+          setCommentInputs((prev) => ({ ...prev, [planId]: "" }));
+          const updatedPlans = await fetchPlans();
+          setPlans(updatedPlans);
+        } else {
+          const data = await response.json();
+          alert(data.error || "Failed to post comment");
+        }
       }
     } catch (error) {
       console.error("Error posting comment:", error);
@@ -209,32 +274,47 @@ export default function Main() {
         })
       );
 
-      // API call in background
-      const response = await fetch("/api/votes", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+      // Use Socket.IO for real-time voting
+      if (isConnected) {
+        console.log("🚀 Sending vote via Socket.IO");
+        console.log("🚀 Vote data:", {
           userId: currentUser.id,
           optionId,
           planId,
-        }),
-      });
-
-      console.log("Vote response status:", response.status);
-      const data = await response.json();
-      console.log("Vote response data:", data);
-
-      if (response.ok) {
-        // Refresh with real data from server
-        const updatedPlans = await fetchPlans();
-        setPlans(updatedPlans);
+        });
+        // Join the plan room before voting
+        joinPlanRoom(planId);
+        sendVote(currentUser.id, optionId, planId);
+        console.log("🚀 Vote sent via Socket.IO");
       } else {
-        // Revert optimistic update on error
-        const updatedPlans = await fetchPlans();
-        setPlans(updatedPlans);
-        alert(data.error || "Failed to vote");
+        console.log("Socket.IO not connected, using REST API fallback");
+        // Fallback to API if Socket.IO is not connected
+        const response = await fetch("/api/votes", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            userId: currentUser.id,
+            optionId,
+            planId,
+          }),
+        });
+
+        console.log("Vote response status:", response.status);
+        const data = await response.json();
+        console.log("Vote response data:", data);
+
+        if (!response.ok) {
+          // Revert optimistic update on error
+          const updatedPlans = await fetchPlans();
+          setPlans(updatedPlans);
+          alert(data.error || "Failed to vote");
+        } else {
+          // Refresh data after successful vote
+          const updatedPlans = await fetchPlans();
+          setPlans(updatedPlans);
+        }
       }
     } catch (error) {
       console.error("Error voting:", error);
@@ -250,12 +330,17 @@ export default function Main() {
   };
 
   const getTotalVotes = (options: PlanOption[]) => {
-    return options.reduce((total, option) => total + option.votes.length, 0);
+    return (
+      options?.reduce(
+        (total, option) => total + (option.votes?.length || 0),
+        0
+      ) || 0
+    );
   };
 
   const getVotePercentage = (votes: Vote[], totalVotes: number) => {
     if (totalVotes === 0) return 0;
-    return Math.round((votes.length / totalVotes) * 100);
+    return Math.round(((votes?.length || 0) / totalVotes) * 100);
   };
 
   const addOptionField = () => {
@@ -403,6 +488,8 @@ export default function Main() {
 
   return (
     <main className="space-y-8">
+      <RealTimeStatus />
+      <SocketDebug />
       {/* Create Poll Section */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-6">
@@ -508,7 +595,7 @@ export default function Main() {
           </div>
         </div>
 
-        {/* WhatsApp-style Polls */}
+        {/* WhatsApp-styaaaaaale Polls */}
         <div className="space-y-6">
           {plans.length === 0 ? (
             <div className="text-center py-16">
@@ -537,12 +624,14 @@ export default function Main() {
               const totalVotes = getTotalVotes(plan.options);
               const selectedOption = selectedOptions[plan.id];
               const isCommentsOpen = showComments[plan.id];
-              const hasVoted = plan.options.some((option) =>
-                option.votes.some((vote) => vote.userId === currentUser?.id)
-              );
-              const hasCommented = plan.comments.some(
-                (comment) => comment.user?.id === currentUser?.id
-              );
+              const hasVoted =
+                plan.options?.some((option) =>
+                  option.votes?.some((vote) => vote.userId === currentUser?.id)
+                ) || false;
+              const hasCommented =
+                plan.comments?.some(
+                  (comment) => comment.user?.id === currentUser?.id
+                ) || false;
               const isCreator = plan.createdBy?.id === currentUser?.id;
 
               return (
@@ -576,17 +665,18 @@ export default function Main() {
 
                     {/* Options */}
                     <div className="space-y-4 mb-6">
-                      {plan.options.map((option) => {
+                      {plan.options?.map((option) => {
                         const isSelected = selectedOption === option.id;
                         const votePercentage = getVotePercentage(
                           option.votes,
                           totalVotes
                         );
                         const progressWidth = `${votePercentage}%`;
-                        const hasUserVoted = option.votes.some(
-                          (vote) => vote.userId === currentUser?.id
-                        );
-                        const userVote = option.votes.find(
+                        const hasUserVoted =
+                          option.votes?.some(
+                            (vote) => vote.userId === currentUser?.id
+                          ) || false;
+                        const userVote = option.votes?.find(
                           (vote) => vote.userId === currentUser?.id
                         );
 
@@ -629,7 +719,7 @@ export default function Main() {
                                 </span>
                                 <div className="flex items-center space-x-3">
                                   <span className="text-sm text-gray-600 font-medium">
-                                    {option.votes.length}
+                                    {option.votes?.length || 0}
                                   </span>
                                   {/* Profile Icons */}
                                   <div className="flex -space-x-1">
@@ -732,12 +822,12 @@ export default function Main() {
                     <div className="mt-6 pt-4 border-t border-gray-200">
                       {/* Comments List */}
                       <div className="space-y-4 mb-4">
-                        {plan.comments.length === 0 ? (
+                        {!plan.comments || plan.comments.length === 0 ? (
                           <p className="text-gray-500 text-sm italic text-left py-4">
                             No comments yet. Be the first to comment!
                           </p>
                         ) : (
-                          plan.comments.map((comment) => (
+                          plan.comments?.map((comment) => (
                             <div
                               key={comment.id}
                               className="flex items-start space-x-3"
