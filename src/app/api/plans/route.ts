@@ -118,6 +118,14 @@ export async function DELETE(request: NextRequest) {
         id: planId,
         createdById: userId,
       },
+      include: {
+        options: {
+          include: {
+            votes: true,
+          },
+        },
+        comments: true,
+      },
     });
 
     if (!plan) {
@@ -127,14 +135,28 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Delete the plan (this will cascade delete options, votes, and comments)
+    console.log(`🗑️ Deleting plan: ${planId}`);
+    console.log(`🗑️ Plan has ${plan.options.length} options, ${plan.options.reduce((total, opt) => total + opt.votes.length, 0)} votes, and ${plan.comments.length} comments`);
+
+    // Delete the plan (this will cascade delete all related data due to onDelete: Cascade in schema)
     await prisma.plan.delete({
       where: {
         id: planId,
       },
     });
 
-    return NextResponse.json({ success: true });
+    console.log(`✅ Successfully deleted plan: ${planId} and all related data`);
+
+    return NextResponse.json({ 
+      success: true,
+      message: "Plan and all related data deleted successfully",
+      deletedData: {
+        planId,
+        optionsCount: plan.options.length,
+        votesCount: plan.options.reduce((total, opt) => total + opt.votes.length, 0),
+        commentsCount: plan.comments.length,
+      }
+    });
   } catch (error) {
     console.error("Error deleting plan:", error);
     return NextResponse.json(

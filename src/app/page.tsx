@@ -70,46 +70,33 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
+    <div className="min-h-screen bg-black">
       {/* Enhanced Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
+      <div className="bg-black/90 backdrop-blur-xl border-b border-green-600/20 w-full">
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             {/* Logo and Title */}
-            <div className="flex items-center space-x-4">
-              <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-blue-600 rounded-xl flex items-center justify-center">
-                <span className="text-white font-bold text-lg">VP</span>
-              </div>
-              <div className="flex items-center space-x-3">
-                <h1 className="text-xl font-bold text-gray-900">
-                  Voting Polls
-                </h1>
-                <span className="text-gray-400">•</span>
-                <p className="text-sm text-gray-500">
-                  Create and vote on polls together
-                </p>
-              </div>
+            <div className="flex items-center justify-start">
+              <h1 className="text-xl font-bold text-green-600 tracking-wide">
+                Krlaangy
+              </h1>
             </div>
 
             {/* User Info and Logout */}
             <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-3 bg-gray-50 rounded-lg px-4 py-2">
-                <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-blue-600 rounded-full flex items-center justify-center">
-                  <User size={16} className="text-white" />
-                </div>
+              <div className="flex items-center space-x-3">
+                <User size={20} className="text-green-400" />
                 <div className="text-sm">
-                  <p className="font-medium text-gray-900">
+                  <p className="font-medium text-white">
                     {user.name || user.email || "Unknown"}
                   </p>
-                  <p className="text-gray-500 text-xs">{user.email}</p>
                 </div>
               </div>
               <button
                 onClick={handleLogout}
-                className="flex items-center space-x-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors text-sm font-medium"
+                className="flex items-center bg-black space-x-2 px-4 py-2 text-red-400 rounded-lg transition-colors text-sm font-medium hover:text-red-800"
               >
-                <LogOut size={16} />
-                <span>Logout</span>
+                <LogOut size={20} />
               </button>
             </div>
           </div>
@@ -117,8 +104,10 @@ export default function HomePage() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <Main />
+      <div className="w-full bg-black">
+        <div className="max-w-4xl mx-auto px-4 py-8">
+          <Main />
+        </div>
       </div>
     </div>
   );

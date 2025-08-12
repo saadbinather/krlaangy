@@ -5,10 +5,10 @@ const prisma = new PrismaClient();
 
 export async function POST(request: NextRequest) {
   try {
-    const { email } = await request.json();
+    const { email, password } = await request.json();
 
-    if (!email) {
-      return NextResponse.json({ error: "Email is required" }, { status: 400 });
+    if (!email || !password) {
+      return NextResponse.json({ error: "Email and password are required" }, { status: 400 });
     }
 
     // Check if user exists in database
@@ -23,7 +23,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // User found - return success
+    // Check if password matches
+    if (user.password !== password) {
+      return NextResponse.json(
+        { error: "Invalid password. Please try again." },
+        { status: 401 }
+      );
+    }
+
+    // User authenticated successfully - return success
     return NextResponse.json({
       success: true,
       user: {

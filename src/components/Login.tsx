@@ -1,7 +1,27 @@
 "use client";
 
 import React, { useState } from "react";
-import { Mail, AlertCircle, CheckCircle } from "lucide-react";
+import {
+  Mail,
+  Lock,
+  AlertCircle,
+  CheckCircle,
+  Vote,
+  Eye,
+  EyeOff,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 
 interface LoginProps {
   onLogin: (user: { id: string; email: string; name: string }) => void;
@@ -9,6 +29,8 @@ interface LoginProps {
 
 export default function Login({ onLogin }: LoginProps) {
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -25,7 +47,10 @@ export default function Login({ onLogin }: LoginProps) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email: email.toLowerCase() }),
+        body: JSON.stringify({
+          email: email.toLowerCase(),
+          password: password,
+        }),
       });
 
       const data = await response.json();
@@ -46,73 +71,116 @@ export default function Login({ onLogin }: LoginProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 flex items-center justify-center p-6">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Mail size={32} className="text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">
-            Welcome Back
-          </h1>
-          <p className="text-gray-600">
-            Enter your email to access the voting platform
-          </p>
-        </div>
+    <div className="min-h-screen bg-black flex items-center justify-center p-6 relative overflow-hidden">
+      {/* Background Pattern */}
+      <div
+        className="absolute inset-0 opacity-10"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2300ff88' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+        }}
+      ></div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label
-              htmlFor="email"
-              className="block text-sm font-medium text-gray-700 mb-2"
+      {/* Floating Elements */}
+      <div className="absolute top-20 left-20 w-32 h-32 bg-green-600/10 rounded-full blur-3xl"></div>
+      <div className="absolute bottom-20 right-20 w-40 h-40 bg-green-500/10 rounded-full blur-3xl"></div>
+
+      <Card className="w-full max-w-md shadow-2xl border border-green-600/20 bg-black/90 backdrop-blur-xl">
+        <CardHeader className="text-center space-y-4 pb-8">
+          <div className="space-y-2">
+            <CardTitle className="text-3xl font-bold text-green-400">
+              Krlaangy
+            </CardTitle>
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-2">
+              <Label
+                htmlFor="email"
+                className="text-green-400 text-sm font-medium"
+              >
+                Email Address
+              </Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-3 h-4 w-4 text-green-500" />
+                <Input
+                  type="email"
+                  id="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="pl-10 bg-black border-green-600/30 text-white placeholder:text-green-500/50 focus:border-green-500 focus:ring-green-500/20"
+                  placeholder="Enter your NU mail"
+                  required
+                  disabled={loading}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label
+                htmlFor="password"
+                className="text-green-400 text-sm font-medium"
+              >
+                Password
+              </Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 h-4 w-4 text-green-500" />
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  id="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pl-10 pr-10 bg-black border-green-600/30 text-white placeholder:text-green-500/50 focus:border-green-500 focus:ring-green-500/20"
+                  placeholder="Enter your password"
+                  required
+                  disabled={loading}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-1 top-1 h-8 w-8 p-0 text-green-500 hover:text-green-400"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </Button>
+              </div>
+            </div>
+
+            {/* Error Message */}
+            {error && (
+              <div className="flex items-center space-x-2 p-3 bg-red-900/20 border border-red-600/30 rounded-lg">
+                <AlertCircle size={20} className="text-red-400" />
+                <span className="text-red-300 text-sm">{error}</span>
+              </div>
+            )}
+
+            {/* Success Message */}
+            {success && (
+              <div className="flex items-center space-x-2 p-3 bg-green-900/20 border border-green-600/30 rounded-lg">
+                <CheckCircle size={20} className="text-green-400" />
+                <span className="text-green-300 text-sm">{success}</span>
+              </div>
+            )}
+
+            <Button
+              type="submit"
+              disabled={loading || !email.trim() || !password.trim()}
+              className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold py-3 h-12 text-base transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
             >
-              Email Address
-            </label>
-            <div className="relative">
-              <input
-                type="email"
-                id="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                placeholder="Enter your email"
-                required
-                disabled={loading}
-              />
-            </div>
-          </div>
-
-          {/* Error Message */}
-          {error && (
-            <div className="flex items-center space-x-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <AlertCircle size={20} className="text-red-500" />
-              <span className="text-red-700 text-sm">{error}</span>
-            </div>
-          )}
-
-          {/* Success Message */}
-          {success && (
-            <div className="flex items-center space-x-2 p-3 bg-green-50 border border-green-200 rounded-lg">
-              <CheckCircle size={20} className="text-green-500" />
-              <span className="text-green-700 text-sm">{success}</span>
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading || !email.trim()}
-            className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 px-4 rounded-lg font-semibold hover:from-blue-600 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? "Checking..." : "Sign In"}
-          </button>
-        </form>
-
-        <div className="mt-6 text-center">
-          <p className="text-sm text-gray-500">
-            Only registered users can access this platform
-          </p>
-        </div>
-      </div>
+              {loading ? (
+                <div className="flex items-center space-x-2">
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  <span>Signing In...</span>
+                </div>
+              ) : (
+                "Sign In"
+              )}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }

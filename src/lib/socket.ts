@@ -122,11 +122,27 @@ export const useSocket = (options: UseSocketOptions = {}) => {
     }
   };
 
+  const deletePlan = (planId: string, userId: string) => {
+    if (socketRef.current && isConnected) {
+      socketRef.current.emit("delete-plan", {
+        planId,
+        userId,
+      });
+    }
+  };
+
   // Event listeners with duplicate prevention
   const onPlanUpdated = useCallback((callback: (data: any) => void) => {
     if (socketRef.current && !eventListenersRef.current.has("plan-updated")) {
       socketRef.current.on("plan-updated", callback);
       eventListenersRef.current.add("plan-updated");
+    }
+  }, []);
+
+  const onPlanDeleted = useCallback((callback: (data: any) => void) => {
+    if (socketRef.current && !eventListenersRef.current.has("plan-deleted")) {
+      socketRef.current.on("plan-deleted", callback);
+      eventListenersRef.current.add("plan-deleted");
     }
   }, []);
 
@@ -141,6 +157,13 @@ export const useSocket = (options: UseSocketOptions = {}) => {
     if (socketRef.current && !eventListenersRef.current.has("comment-error")) {
       socketRef.current.on("comment-error", callback);
       eventListenersRef.current.add("comment-error");
+    }
+  }, []);
+
+  const onPlanDeleteError = useCallback((callback: (data: any) => void) => {
+    if (socketRef.current && !eventListenersRef.current.has("plan-delete-error")) {
+      socketRef.current.on("plan-delete-error", callback);
+      eventListenersRef.current.add("plan-delete-error");
     }
   }, []);
 
@@ -170,9 +193,12 @@ export const useSocket = (options: UseSocketOptions = {}) => {
     sendVote,
     deleteVote,
     sendComment,
+    deletePlan,
     onPlanUpdated,
+    onPlanDeleted,
     onVoteError,
     onCommentError,
+    onPlanDeleteError,
     disconnect,
     connect,
     joinPlanRoom,

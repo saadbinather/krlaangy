@@ -12,6 +12,8 @@ import {
   User,
   Eye,
   Trash2,
+  Settings,
+  LogOut,
 } from "lucide-react";
 import {
   Dialog,
@@ -20,9 +22,19 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useSocket } from "@/lib/socket";
-import RealTimeStatus from "./RealTimeStatus";
-import SocketDebug from "./SocketDebug";
 
 type Plan = {
   id: string;
@@ -124,9 +136,12 @@ export default function Main() {
     sendVote,
     deleteVote,
     sendComment,
+    deletePlan,
     onPlanUpdated,
+    onPlanDeleted,
     onVoteError,
     onCommentError,
+    onPlanDeleteError,
     joinPlanRoom,
   } = useSocket();
 
@@ -168,6 +183,20 @@ export default function Main() {
         });
       });
 
+      onPlanDeleted((data) => {
+        console.log("🗑️ Plan deleted via Socket.IO:", data);
+        const { planId, deletedData } = data;
+        console.log(
+          `🗑️ Plan ${planId} deleted with ${deletedData.optionsCount} options, ${deletedData.votesCount} votes, and ${deletedData.commentsCount} comments`
+        );
+
+        setPlans((prevPlans) => {
+          const updatedPlans = prevPlans.filter((p) => p.id !== planId);
+          console.log("🗑️ Removed plan from state:", planId);
+          return updatedPlans;
+        });
+      });
+
       onVoteError((error) => {
         console.error("❌ Vote error:", error);
         alert(error.error || "Vote failed");
@@ -177,8 +206,13 @@ export default function Main() {
         console.error("❌ Comment error:", error);
         alert(error.error || "Comment failed");
       });
+
+      onPlanDeleteError((error) => {
+        console.error("❌ Plan delete error:", error);
+        alert(error.error || "Failed to delete plan");
+      });
     }
-  }, [isConnected, onPlanUpdated, onVoteError, onCommentError]); // Add callback dependencies
+  }, [isConnected]); // Only depend on isConnected
 
   const handleCommentChange = (planId: string, value: string) => {
     setCommentInputs((prev) => ({ ...prev, [planId]: value }));
@@ -407,19 +441,32 @@ export default function Main() {
     if (!currentUser) return;
 
     try {
-      const response = await fetch(
-        `/api/plans?planId=${planId}&userId=${currentUser.id}`,
-        {
-          method: "DELETE",
-        }
-      );
+      if (isConnected) {
+        // Use Socket.IO for real-time plan deletion
+        console.log("🗑️ Sending plan deletion via Socket.IO");
+        console.log("🗑️ Delete data:", { planId, userId: currentUser.id });
 
-      if (response.ok) {
-        const updatedPlans = await fetchPlans();
-        setPlans(updatedPlans);
+        // Join the plan room before deleting
+        joinPlanRoom(planId);
+        deletePlan(planId, currentUser.id);
+        console.log("🗑️ Plan deletion sent via Socket.IO");
       } else {
-        const data = await response.json();
-        alert(data.error || "Failed to delete plan");
+        // Fallback to API if Socket.IO is not connected
+        console.log("Socket.IO not connected, using REST API fallback");
+        const response = await fetch(
+          `/api/plans?planId=${planId}&userId=${currentUser.id}`,
+          {
+            method: "DELETE",
+          }
+        );
+
+        if (response.ok) {
+          const updatedPlans = await fetchPlans();
+          setPlans(updatedPlans);
+        } else {
+          const data = await response.json();
+          alert(data.error || "Failed to delete plan");
+        }
       }
     } catch (error) {
       console.error("Error deleting plan:", error);
@@ -477,147 +524,192 @@ export default function Main() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
+      <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading polls...</p>
+          <p className="text-green-400">Loading polls...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <main className="space-y-8">
-      <RealTimeStatus />
-      <SocketDebug />
-      {/* Create Poll Section */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              Create New Poll
-            </h2>
-            <p className="text-gray-600">
-              Start a new discussion with your team
-            </p>
-          </div>
-          <button
-            onClick={() => setShowCreateForm(!showCreateForm)}
-            className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-green-500 to-blue-600 text-white rounded-xl font-semibold hover:from-green-600 hover:to-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl"
-          >
-            <Plus size={20} />
-            <span>{showCreateForm ? "Cancel" : "Create New Poll"}</span>
-          </button>
-        </div>
-
-        {showCreateForm && (
-          <form
-            onSubmit={handleCreatePlan}
-            className="space-y-6 bg-gray-50 rounded-xl p-6"
-          >
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Poll Question
-              </label>
-              <input
-                type="text"
-                value={newPlanTitle}
-                onChange={(e) => setNewPlanTitle(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
-                placeholder="What would you like to ask?"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Options
-              </label>
-              <div className="space-y-3">
-                {newPlanOptions.map((option, index) => (
-                  <div key={index} className="flex items-center space-x-3">
-                    <input
-                      type="text"
-                      value={option}
-                      onChange={(e) => updateOptionField(index, e.target.value)}
-                      className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
-                      placeholder={`Option ${index + 1}`}
-                      required
-                    />
-                    {newPlanOptions.length > 2 && (
-                      <button
-                        type="button"
-                        onClick={() => removeOptionField(index)}
-                        className="p-3 text-red-500 hover:text-red-700 transition-colors"
-                      >
-                        <X size={20} />
-                      </button>
-                    )}
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={addOptionField}
-                  className="flex items-center space-x-2 text-green-600 hover:text-green-700 font-medium"
-                >
-                  <Plus size={16} />
-                  <span>Add Option</span>
-                </button>
+    <div className="min-h-screen bg-black">
+      {/* Header */}
+      <div className="bg-black/90 backdrop-blur-xl border-b border-green-600/20 w-full">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="w-10 h-10 bg-gradient-to-r from-green-600 to-green-700 rounded-xl flex items-center justify-center">
+                <Vote size={24} className="text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-white font-playfair tracking-wide">
+                  Krlaangy
+                </h1>
+                <p className="text-green-400 text-sm">
+                  RTVP
+                </p>
               </div>
             </div>
-
-            <div className="flex items-center space-x-4">
-              <button
-                type="submit"
-                disabled={creatingPlan}
-                className="px-8 py-3 bg-gradient-to-r from-green-500 to-blue-600 text-white rounded-lg font-semibold hover:from-green-600 hover:to-blue-700 transition-all duration-200 disabled:opacity-50"
-              >
-                {creatingPlan ? "Creating..." : "Create Poll"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowCreateForm(false)}
-                className="px-8 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-all duration-200"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        )}
+   
+   
+          </div>
+        </div>
       </div>
 
-      {/* Polls Section */}
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xl font-bold text-gray-900">Recent Polls</h3>
-          <div className="text-sm text-gray-500">
-            {plans.length} poll{plans.length !== 1 ? "s" : ""}
+      <main className="w-full bg-black">
+        <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+          {/* Create Poll Section */}
+          <Card className="bg-black/90 backdrop-blur-xl border-green-600/20">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-2xl font-bold text-white">
+                    Create New Poll
+                  </CardTitle>
+                  <CardDescription className="text-green-400">
+                    Start a new discussion with your team
+                  </CardDescription>
+                </div>
+                <Button
+                  onClick={() => setShowCreateForm(!showCreateForm)}
+                  className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold shadow-lg"
+                >
+                  <Plus size={20} className="mr-2" />
+                  {showCreateForm ? "Cancel" : "Create New Poll"}
+                </Button>
+              </div>
+            </CardHeader>
+
+            {showCreateForm && (
+              <CardContent>
+                <form
+                  onSubmit={handleCreatePlan}
+                  className="space-y-6 bg-black/50 rounded-xl p-6 border border-green-600/20"
+                >
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="poll-question"
+                      className="text-green-400 text-sm font-medium"
+                    >
+                      Poll Question
+                    </Label>
+                    <Input
+                      id="poll-question"
+                      type="text"
+                      value={newPlanTitle}
+                      onChange={(e) => setNewPlanTitle(e.target.value)}
+                      className="bg-black border-green-600/30 text-white placeholder:text-green-500/50 focus:border-green-500 focus:ring-green-500/20"
+                      placeholder="What would you like to ask?"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-green-400 text-sm font-medium">
+                      Options
+                    </Label>
+                    <div className="space-y-3">
+                      {newPlanOptions.map((option, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center space-x-3"
+                        >
+                          <Input
+                            type="text"
+                            value={option}
+                            onChange={(e) =>
+                              updateOptionField(index, e.target.value)
+                            }
+                            className="flex-1 bg-black border-green-600/30 text-white placeholder:text-green-500/50 focus:border-green-500 focus:ring-green-500/20"
+                            placeholder={`Option ${index + 1}`}
+                            required
+                          />
+                          {newPlanOptions.length > 2 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeOptionField(index)}
+                              className="p-3 text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                            >
+                              <X size={16} />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={addOptionField}
+                        className="text-green-400 hover:text-green-300 border-green-600/30 hover:bg-green-600/10"
+                      >
+                        <Plus size={16} className="mr-2" />
+                        Add Option
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-4">
+                    <Button
+                      type="submit"
+                      disabled={creatingPlan}
+                      className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold shadow-lg"
+                    >
+                      {creatingPlan ? "Creating..." : "Create Poll"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowCreateForm(false)}
+                      className="border-green-600/30 text-green-400 hover:bg-green-600/10"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            )}
+          </Card>
+        </div>
+
+        {/* Polls Section */}
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xl font-bold text-white">Recent Polls</h3>
+            <Badge
+              variant="secondary"
+              className="bg-green-600/20 text-green-400 border-green-600/30"
+            >
+              {plans.length} poll{plans.length !== 1 ? "s" : ""}
+            </Badge>
           </div>
         </div>
 
-        {/* WhatsApp-styaaaaaale Polls */}
+        {/* Professional Poll Cards */}
         <div className="space-y-6">
           {plans.length === 0 ? (
             <div className="text-center py-16">
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-12">
-                <div className="w-16 h-16 bg-gradient-to-r from-green-500 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Card className="bg-black/90 backdrop-blur-xl border-green-600/20 p-12">
+                <div className="w-16 h-16 bg-gradient-to-r from-green-600 to-green-700 rounded-full flex items-center justify-center mx-auto mb-6">
                   <Plus size={32} className="text-white" />
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-4">
+                <h3 className="text-2xl font-bold text-white mb-4">
                   No polls yet
                 </h3>
-                <p className="text-gray-600 mb-8 max-w-md mx-auto">
+                <p className="text-green-400 mb-8 max-w-md mx-auto">
                   Be the first to create a poll! Start a discussion with your
                   team by creating a new poll.
                 </p>
-                <button
+                <Button
                   onClick={() => setShowCreateForm(true)}
-                  className="inline-flex items-center space-x-2 px-8 py-4 bg-gradient-to-r from-green-500 to-blue-600 text-white rounded-xl font-semibold hover:from-green-600 hover:to-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl"
+                  className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold shadow-lg"
                 >
-                  <Plus size={20} />
-                  <span>Create First Poll</span>
-                </button>
-              </div>
+                  <Plus size={20} className="mr-2" />
+                  Create First Poll
+                </Button>
+              </Card>
             </div>
           ) : (
             plans.map((plan) => {
@@ -635,36 +727,43 @@ export default function Main() {
               const isCreator = plan.createdBy?.id === currentUser?.id;
 
               return (
-                <div key={plan.id} className="flex justify-end">
-                  {/* WhatsApp-style Poll Bubble */}
-                  <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 max-w-lg relative">
-                    {/* Plan Creator Name at Top Right */}
-                    <div className="absolute flexs top-4 left-4 text-sm text-gray-600 font-medium">
-                      {plan.createdBy?.name || "Unknown"}
-                      {/* Timestamp at Top Right */}
-                      <div className=" text-xs text-gray-500">
-                        {formatDate(plan.createdAt)}
+                <Card
+                  key={plan.id}
+                  className="bg-black/90 backdrop-blur-xl border-green-600/20"
+                >
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-gradient-to-r from-green-600 to-green-700 rounded-full flex items-center justify-center">
+                          <User size={20} className="text-white" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-bold text-white">
+                            {plan.title}
+                          </h3>
+                          <p className="text-green-400 text-sm">
+                            by {plan.createdBy?.name || "Unknown"} •{" "}
+                            {formatDate(plan.createdAt)}
+                          </p>
+                        </div>
                       </div>
+                      {isCreator && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeletePlan(plan.id)}
+                          className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                          title="Delete poll"
+                        >
+                          <Trash2 size={16} />
+                        </Button>
+                      )}
                     </div>
+                  </CardHeader>
 
-                    {/* Delete Icon for Creator - moved to avoid overlap */}
-                    {isCreator && (
-                      <button
-                        onClick={() => handleDeletePlan(plan.id)}
-                        className="absolute top-4 right-12 text-red-500 hover:text-red-700 transition-colors"
-                        title="Delete poll"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    )}
-
-                    {/* Poll Question */}
-                    <h2 className="text-lg font-bold text-gray-900 mb-6 mt-8">
-                      {plan.title}
-                    </h2>
-
+                  <CardContent className="space-y-6">
                     {/* Options */}
-                    <div className="space-y-4 mb-6">
+                    <div className="space-y-4">
                       {plan.options?.map((option) => {
                         const isSelected = selectedOption === option.id;
                         const votePercentage = getVotePercentage(
@@ -683,52 +782,49 @@ export default function Main() {
                         return (
                           <div
                             key={option.id}
-                            className="flex items-center space-x-4 cursor-pointer group hover:bg-gray-50 rounded-lg p-3 transition-colors"
+                            className="group cursor-pointer"
                             onClick={() => {
                               if (hasUserVoted && userVote) {
-                                // If user already voted on this option, delete the vote
                                 handleDeleteVote(userVote.id);
                               } else {
-                                // If user hasn't voted on this option, vote on it
                                 handleVote(plan.id, option.id);
                               }
                             }}
                           >
-                            {/* Radio Button */}
-                            <div className="flex-shrink-0">
-                              <div
-                                className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${
-                                  hasUserVoted
-                                    ? "border-green-500 bg-green-500"
-                                    : isSelected
-                                    ? "border-green-500"
-                                    : "border-gray-400 group-hover:border-green-300"
-                                }`}
-                              >
-                                {hasUserVoted && (
-                                  <Check size={12} className="text-white" />
-                                )}
+                            <div className="flex items-center space-x-4 p-4 rounded-lg border border-green-600/20 hover:border-green-600/40 transition-all duration-200 hover:bg-green-600/5">
+                              {/* Radio Button */}
+                              <div className="flex-shrink-0">
+                                <div
+                                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${
+                                    hasUserVoted
+                                      ? "border-green-500 bg-green-500"
+                                      : isSelected
+                                      ? "border-green-500"
+                                      : "border-green-600/50 group-hover:border-green-400"
+                                  }`}
+                                >
+                                  {hasUserVoted && (
+                                    <Check size={12} className="text-white" />
+                                  )}
+                                </div>
                               </div>
-                            </div>
 
-                            {/* Option Content */}
-                            <div className="flex-1">
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="text-gray-900 font-medium">
-                                  {option.optionText}
-                                </span>
-                                <div className="flex items-center space-x-3">
-                                  <span className="text-sm text-gray-600 font-medium">
-                                    {option.votes?.length || 0}
+                              {/* Option Content */}
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between mb-3">
+                                  <span className="text-white font-medium">
+                                    {option.optionText}
                                   </span>
-                                  {/* Profile Icons */}
-                                  <div className="flex -space-x-1">
-                                    {option.votes
-                                      .slice(0, 3)
-                                      .map((vote, index) => (
+                                  <div className="flex items-center space-x-3">
+                                    <span className="text-sm text-green-400 font-medium">
+                                      {option.votes?.length || 0} votes
+                                    </span>
+                                    {/* Profile Icons */}
+                                    <div className="flex -space-x-2">
+                                      {option.votes?.slice(0, 3).map((vote) => (
                                         <div
                                           key={vote.id}
-                                          className="w-6 h-6 bg-gradient-to-r from-green-500 to-blue-600 rounded-full border-2 border-white flex items-center justify-center shadow-sm"
+                                          className="w-6 h-6 bg-gradient-to-r from-green-500 to-green-600 rounded-full border-2 border-black flex items-center justify-center shadow-sm"
                                         >
                                           <span className="text-xs text-white font-bold">
                                             {vote.user?.name
@@ -737,16 +833,28 @@ export default function Main() {
                                           </span>
                                         </div>
                                       ))}
+                                      {option.votes &&
+                                        option.votes.length > 3 && (
+                                          <div className="w-6 h-6 bg-green-600/50 rounded-full border-2 border-black flex items-center justify-center">
+                                            <span className="text-xs text-white font-bold">
+                                              +{option.votes.length - 3}
+                                            </span>
+                                          </div>
+                                        )}
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
 
-                              {/* Progress Bar */}
-                              <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                                <div
-                                  className="bg-gradient-to-r from-green-500 to-blue-600 h-2 rounded-full transition-all duration-300"
-                                  style={{ width: progressWidth }}
-                                ></div>
+                                {/* Progress Bar */}
+                                <div className="w-full bg-green-600/20 rounded-full h-2 overflow-hidden">
+                                  <div
+                                    className="bg-gradient-to-r from-green-500 to-green-600 h-2 rounded-full transition-all duration-300"
+                                    style={{ width: progressWidth }}
+                                  ></div>
+                                </div>
+                                <div className="text-xs text-green-400 mt-1">
+                                  {votePercentage}%
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -754,60 +862,65 @@ export default function Main() {
                       })}
                     </div>
 
-                    {/* Footer */}
-                    <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-                      <div className="text-sm text-gray-500">
+                    {/* Total Votes & Actions */}
+                    <div className="flex items-center justify-between pt-4 border-t border-green-600/20">
+                      <div className="text-sm text-green-400">
                         {totalVotes} total vote{totalVotes !== 1 ? "s" : ""}
                       </div>
 
                       <Dialog>
                         <DialogTrigger asChild>
-                          <button className="text-green-600 hover:text-green-700 font-medium text-sm flex items-center space-x-1">
-                            <span>View votes</span>
-                          </button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-green-600/30 text-green-400 hover:bg-green-600/10"
+                          >
+                            <Eye size={16} className="mr-2" />
+                            View Details
+                          </Button>
                         </DialogTrigger>
-                        <DialogContent className="max-w-md">
+                        <DialogContent className="bg-black border-green-600/20">
                           <DialogHeader>
-                            <DialogTitle>
+                            <DialogTitle className="text-white">
                               Vote Details - {plan.title}
                             </DialogTitle>
                           </DialogHeader>
                           <div className="space-y-4">
-                            {plan.options.map((option) => (
+                            {plan.options?.map((option) => (
                               <div
                                 key={option.id}
-                                className="border rounded-lg p-4"
+                                className="border border-green-600/20 rounded-lg p-4"
                               >
                                 <div className="flex items-center justify-between mb-2">
-                                  <h4 className="font-medium text-gray-900">
+                                  <h4 className="font-medium text-white">
                                     {option.optionText}
                                   </h4>
-                                  <span className="text-sm text-gray-500">
-                                    {option.votes.length} votes
+                                  <span className="text-sm text-green-400">
+                                    {option.votes?.length || 0} votes
                                   </span>
                                 </div>
-                                {option.votes.length > 0 ? (
+                                {option.votes && option.votes.length > 0 ? (
                                   <div className="space-y-2">
                                     {option.votes.map((vote) => (
                                       <div
                                         key={vote.id}
                                         className="flex items-center space-x-2"
                                       >
-                                        <div className="w-6 h-6 bg-gradient-to-r from-green-500 to-blue-600 rounded-full flex items-center justify-center">
+                                        <div className="w-6 h-6 bg-gradient-to-r from-green-500 to-green-600 rounded-full flex items-center justify-center">
                                           <span className="text-xs text-white font-bold">
                                             {vote.user?.name
                                               ?.charAt(0)
                                               .toUpperCase() || "A"}
                                           </span>
                                         </div>
-                                        <span className="text-sm text-gray-700">
+                                        <span className="text-sm text-green-400">
                                           {vote.user?.name || "Unknown User"}
                                         </span>
                                       </div>
                                     ))}
                                   </div>
                                 ) : (
-                                  <p className="text-sm text-gray-500 italic">
+                                  <p className="text-sm text-green-400/70 italic">
                                     No votes yet
                                   </p>
                                 )}
@@ -819,11 +932,10 @@ export default function Main() {
                     </div>
 
                     {/* Comments Section */}
-                    <div className="mt-6 pt-4 border-t border-gray-200">
-                      {/* Comments List */}
+                    <div className="pt-4 border-t border-green-600/20">
                       <div className="space-y-4 mb-4">
                         {!plan.comments || plan.comments.length === 0 ? (
-                          <p className="text-gray-500 text-sm italic text-left py-4">
+                          <p className="text-green-400/70 text-sm italic text-center py-4">
                             No comments yet. Be the first to comment!
                           </p>
                         ) : (
@@ -833,7 +945,7 @@ export default function Main() {
                               className="flex items-start space-x-3"
                             >
                               {/* User avatar */}
-                              <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                              <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-green-600 rounded-full flex items-center justify-center flex-shrink-0">
                                 <span className="text-xs text-white font-bold">
                                   {comment.user?.name
                                     ?.charAt(0)
@@ -843,34 +955,30 @@ export default function Main() {
 
                               {/* Comment body */}
                               <div className="flex-1">
-                                {/* User name + delete button */}
                                 <div className="flex items-center space-x-2 mb-1">
-                                  <span className="font-semibold text-sm text-gray-900">
+                                  <span className="font-semibold text-sm text-white">
                                     {comment.user?.name || "Anonymous"}
                                   </span>
-                                  {comment.user?.id === currentUser?.id && (
-                                    <button
-                                      onClick={() =>
-                                        handleDeleteComment(comment.id)
-                                      }
-                                    >
-                                      <Trash2 size={12} />
-                                    </button>
-                                  )}
-                                </div>
-
-                                {/* Fixed comment text alignment */}
-                                <div>
-                                  {" "}
-                                  {/* Removed flex container */}
-                                  <span className="text-xs text-gray-500 block mb-1">
+                                  <span className="text-xs text-green-400/70">
                                     {comment.createdAt
                                       ? formatDate(comment.createdAt)
                                       : "Just now"}
                                   </span>
-                                  <div className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3 text-left">
-                                    {comment.text}
-                                  </div>
+                                  {comment.user?.id === currentUser?.id && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() =>
+                                        handleDeleteComment(comment.id)
+                                      }
+                                      className="p-1 h-auto text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                                    >
+                                      <Trash2 size={12} />
+                                    </Button>
+                                  )}
+                                </div>
+                                <div className="text-sm text-green-400 bg-green-600/10 rounded-lg p-3 border border-green-600/20">
+                                  {comment.text}
                                 </div>
                               </div>
                             </div>
@@ -881,8 +989,8 @@ export default function Main() {
                       {/* Comment Input */}
                       {!hasCommented && (
                         <div className="flex space-x-3">
-                          <input
-                            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200 text-sm"
+                          <Input
+                            className="flex-1 bg-black border-green-600/30 text-white placeholder:text-green-500/50 focus:border-green-500 focus:ring-green-500/20"
                             placeholder="Write a comment..."
                             value={commentInputs[plan.id] || ""}
                             onChange={(e) =>
@@ -894,8 +1002,8 @@ export default function Main() {
                             }}
                             disabled={submitting[plan.id]}
                           />
-                          <button
-                            className="px-6 py-3 bg-gradient-to-r from-green-500 to-blue-600 text-white rounded-lg font-semibold hover:from-green-600 hover:to-blue-700 transition-all duration-200 disabled:opacity-50 text-sm"
+                          <Button
+                            className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold transition-all duration-200 disabled:opacity-50"
                             onClick={() => handleCommentSubmit(plan.id)}
                             disabled={
                               submitting[plan.id] ||
@@ -903,23 +1011,23 @@ export default function Main() {
                             }
                           >
                             {submitting[plan.id] ? "..." : "Post"}
-                          </button>
+                          </Button>
                         </div>
                       )}
 
                       {hasCommented && (
-                        <p className="text-gray-500 text-sm italic text-center py-2">
+                        <p className="text-green-400/70 text-sm italic text-center py-2">
                           You have already commented on this poll
                         </p>
                       )}
                     </div>
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
               );
             })
           )}
         </div>
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }

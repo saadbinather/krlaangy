@@ -251,6 +251,75 @@ const initSocketServer = (server) => {
       }
     });
 
+    // Handle plan deletion
+    socket.on("delete-plan", async (data) => {
+      try {
+        const { planId, userId } = data;
+        console.log("🗑️ Plan deletion request received:", data);
+
+        // Check if the plan exists and belongs to the user
+        const plan = await prisma.plan.findFirst({
+          where: {
+            id: planId,
+            createdById: userId,
+          },
+          include: {
+            options: {
+              include: {
+                votes: true,
+              },
+            },
+            comments: true,
+          },
+        });
+
+        if (!plan) {
+          socket.emit("plan-delete-error", { 
+            error: "Plan not found or you don't have permission to delete it" 
+          });
+          return;
+        }
+
+        console.log(`🗑️ Deleting plan: ${planId}`);
+        console.log(`🗑️ Plan has ${plan.options.length} options, ${plan.options.reduce((total, opt) => total + opt.votes.length, 0)} votes, and ${plan.comments.length} comments`);
+
+        // Delete the plan (this will cascade delete all related data)
+        await prisma.plan.delete({
+          where: {
+            id: planId,
+          },
+        });
+
+        console.log(`✅ Successfully deleted plan: ${planId} and all related data`);
+
+        // Broadcast plan deletion to all clients in the plan room
+        if (io) {
+          console.log(`📡 Broadcasting plan deletion to room plan-${planId}`);
+          io.to(`plan-${planId}`).emit("plan-deleted", {
+            planId,
+            message: "Plan and all related data deleted successfully",
+            deletedData: {
+              planId,
+              optionsCount: plan.options.length,
+              votesCount: plan.options.reduce((total, opt) => total + opt.votes.length, 0),
+              commentsCount: plan.comments.length,
+            }
+          });
+        }
+
+        socket.emit("plan-delete-success", {
+          planId,
+          message: "Plan deleted successfully",
+        });
+
+      } catch (error) {
+        console.error("Error deleting plan:", error);
+        socket.emit("plan-delete-error", { 
+          error: "Failed to delete plan" 
+        });
+      }
+    });
+
     // Handle disconnection
     socket.on("disconnect", () => {
       // console.log('Client disconnected:', socket.id);
