@@ -85,7 +85,7 @@ export const useSocket = (options: UseSocketOptions = {}) => {
         forceNew: true,
         upgrade: true,
         rememberUpgrade: true,
-        withCredentials: true,
+        withCredentials: false, // Disable credentials for better compatibility
         extraHeaders: {
           "Access-Control-Allow-Origin": "*",
         },

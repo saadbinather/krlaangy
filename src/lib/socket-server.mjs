@@ -17,7 +17,7 @@ const initSocketServer = (server) => {
       credentials: true,
       allowedHeaders: ["Content-Type", "Authorization"],
     },
-    transports: ["polling", "websocket"],
+    transports: ["websocket", "polling"], // Try websocket first
     allowEIO3: true,
     pingTimeout: 60000,
     pingInterval: 25000,
@@ -26,6 +26,7 @@ const initSocketServer = (server) => {
     connectTimeout: 45000,
     allowUpgrades: true,
     perMessageDeflate: false,
+    cookie: false, // Disable cookies for better compatibility
   });
 
   io.on("connection", (socket) => {

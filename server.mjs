@@ -16,9 +16,9 @@ app.prepare().then(() => {
     try {
       const parsedUrl = parse(req.url, true);
 
-      // Handle Socket.IO requests
+      // Handle Socket.IO requests - let Socket.IO handle them completely
       if (parsedUrl.pathname?.startsWith("/api/socket")) {
-        // Let Socket.IO handle these requests
+        // Don't call handle() for Socket.IO requests
         return;
       }
 
@@ -30,7 +30,7 @@ app.prepare().then(() => {
     }
   });
 
-  // Initialize Socket.IO server
+  // Initialize Socket.IO server BEFORE listening
   initSocketServer(server);
 
   server.listen(port, (err) => {
