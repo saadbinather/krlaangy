@@ -4,7 +4,7 @@ import next from "next";
 import { initSocketServer } from "./src/lib/socket-server.mjs";
 
 const dev = process.env.NODE_ENV !== "production";
-const hostname = "localhost";
+const hostname = process.env.HOSTNAME || "0.0.0.0";
 const port = process.env.PORT || 3000;
 
 // Prepare the Next.js app
@@ -33,9 +33,10 @@ app.prepare().then(() => {
   // Initialize Socket.IO server BEFORE listening
   initSocketServer(server);
 
-  server.listen(port, (err) => {
+  server.listen(port, hostname, (err) => {
     if (err) throw err;
     console.log(`> Ready on http://${hostname}:${port}`);
     console.log(`> Socket.IO server running on /api/socket`);
+    console.log(`> Environment: ${process.env.NODE_ENV || 'development'}`);
   });
 });

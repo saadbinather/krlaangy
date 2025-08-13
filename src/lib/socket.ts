@@ -69,8 +69,9 @@ export const useSocket = (options: UseSocketOptions = {}) => {
       setIsConnecting(true);
 
       // Create socket connection
-      const socketUrl =
-        process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      const socketUrl = typeof window !== "undefined" 
+        ? window.location.origin 
+        : "https://krlaangy.onrender.com";
       console.log("🔌 Connecting to Socket.IO server at:", socketUrl);
 
       socketRef.current = io(socketUrl, {

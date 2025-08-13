@@ -12,9 +12,11 @@ const initSocketServer = (server) => {
     path: "/api/socket",
     addTrailingSlash: false,
     cors: {
-      origin: "*", // Allow all origins in development
+      origin: process.env.NODE_ENV === "production" 
+        ? ["https://krlaangy.onrender.com", "https://www.krlaangy.onrender.com"]
+        : "*", // Allow all origins in development
       methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-      credentials: true,
+      credentials: false, // Disable credentials for production
       allowedHeaders: ["Content-Type", "Authorization"],
     },
     transports: ["websocket", "polling"], // Try websocket first
