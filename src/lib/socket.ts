@@ -185,49 +185,62 @@ export const useSocket = (options: UseSocketOptions = {}) => {
   // Event listeners with duplicate prevention
   const onPlanUpdated = useCallback(
     (callback: (data: PlanUpdateData) => void) => {
-      if (socketRef.current && !eventListenersRef.current.has("plan-updated")) {
+      if (socketRef.current && isConnected) {
+        // Remove existing listener if any
+        socketRef.current.off("plan-updated");
         socketRef.current.on("plan-updated", callback);
         eventListenersRef.current.add("plan-updated");
       }
     },
-    []
+    [isConnected]
   );
 
   const onPlanDeleted = useCallback(
     (callback: (data: PlanDeleteData) => void) => {
-      if (socketRef.current && !eventListenersRef.current.has("plan-deleted")) {
+      if (socketRef.current && isConnected) {
+        // Remove existing listener if any
+        socketRef.current.off("plan-deleted");
         socketRef.current.on("plan-deleted", callback);
         eventListenersRef.current.add("plan-deleted");
       }
     },
-    []
+    [isConnected]
   );
 
-  const onVoteError = useCallback((callback: (data: ErrorData) => void) => {
-    if (socketRef.current && !eventListenersRef.current.has("vote-error")) {
-      socketRef.current.on("vote-error", callback);
-      eventListenersRef.current.add("vote-error");
-    }
-  }, []);
+  const onVoteError = useCallback(
+    (callback: (data: ErrorData) => void) => {
+      if (socketRef.current && isConnected) {
+        // Remove existing listener if any
+        socketRef.current.off("vote-error");
+        socketRef.current.on("vote-error", callback);
+        eventListenersRef.current.add("vote-error");
+      }
+    },
+    [isConnected]
+  );
 
-  const onCommentError = useCallback((callback: (data: ErrorData) => void) => {
-    if (socketRef.current && !eventListenersRef.current.has("comment-error")) {
-      socketRef.current.on("comment-error", callback);
-      eventListenersRef.current.add("comment-error");
-    }
-  }, []);
+  const onCommentError = useCallback(
+    (callback: (data: ErrorData) => void) => {
+      if (socketRef.current && isConnected) {
+        // Remove existing listener if any
+        socketRef.current.off("comment-error");
+        socketRef.current.on("comment-error", callback);
+        eventListenersRef.current.add("comment-error");
+      }
+    },
+    [isConnected]
+  );
 
   const onPlanDeleteError = useCallback(
     (callback: (data: ErrorData) => void) => {
-      if (
-        socketRef.current &&
-        !eventListenersRef.current.has("plan-delete-error")
-      ) {
+      if (socketRef.current && isConnected) {
+        // Remove existing listener if any
+        socketRef.current.off("plan-delete-error");
         socketRef.current.on("plan-delete-error", callback);
         eventListenersRef.current.add("plan-delete-error");
       }
     },
-    []
+    [isConnected]
   );
 
   const disconnect = () => {

@@ -169,7 +169,7 @@ export default function Main() {
       console.log("🔌 Setting up Socket.IO event listeners");
 
       // Set up event listeners only once when connected
-      onPlanUpdated((data) => {
+      const handlePlanUpdate = (data: any) => {
         console.log("📡 Plan updated via Socket.IO:", data);
         const { planId, plan } = data;
         console.log(`📡 Received update for plan: ${planId}`);
@@ -181,9 +181,9 @@ export default function Main() {
           console.log("📡 Updated plans state:", updatedPlans);
           return updatedPlans;
         });
-      });
+      };
 
-      onPlanDeleted((data) => {
+      const handlePlanDelete = (data: any) => {
         console.log("🗑️ Plan deleted via Socket.IO:", data);
         const { planId, deletedData } = data;
         console.log(
@@ -195,24 +195,43 @@ export default function Main() {
           console.log("🗑️ Removed plan from state:", planId);
           return updatedPlans;
         });
-      });
+      };
 
-      onVoteError((error) => {
+      const handleVoteError = (error: any) => {
         console.error("❌ Vote error:", error);
         alert(error.error || "Vote failed");
-      });
+      };
 
-      onCommentError((error) => {
+      const handleCommentError = (error: any) => {
         console.error("❌ Comment error:", error);
         alert(error.error || "Comment failed");
-      });
+      };
 
-      onPlanDeleteError((error) => {
+      const handlePlanDeleteError = (error: any) => {
         console.error("❌ Plan delete error:", error);
         alert(error.error || "Failed to delete plan");
-      });
+      };
+
+      // Set up event listeners
+      onPlanUpdated(handlePlanUpdate);
+      onPlanDeleted(handlePlanDelete);
+      onVoteError(handleVoteError);
+      onCommentError(handleCommentError);
+      onPlanDeleteError(handlePlanDeleteError);
+
+      // Cleanup function
+      return () => {
+        console.log("🔌 Cleaning up Socket.IO event listeners");
+      };
     }
-  }, [isConnected]); // Only depend on isConnected
+  }, [
+    isConnected,
+    onPlanUpdated,
+    onPlanDeleted,
+    onVoteError,
+    onCommentError,
+    onPlanDeleteError,
+  ]);
 
   const handleCommentChange = (planId: string, value: string) => {
     setCommentInputs((prev) => ({ ...prev, [planId]: value }));
@@ -547,13 +566,9 @@ export default function Main() {
                 <h1 className="text-2xl font-bold text-white font-playfair tracking-wide">
                   Krlaangy
                 </h1>
-                <p className="text-green-400 text-sm">
-                  RTVP
-                </p>
+                <p className="text-green-400 text-sm">RTVP</p>
               </div>
             </div>
-   
-   
           </div>
         </div>
       </div>

@@ -111,6 +111,11 @@ const initSocketServer = (server) => {
                 },
               },
             },
+            comments: {
+              include: {
+                user: true,
+              },
+            },
             createdBy: true,
           },
         });
@@ -177,6 +182,11 @@ const initSocketServer = (server) => {
                     user: true,
                   },
                 },
+              },
+            },
+            comments: {
+              include: {
+                user: true,
               },
             },
             createdBy: true,
