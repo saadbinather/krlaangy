@@ -76,7 +76,7 @@ export const useSocket = (options: UseSocketOptions = {}) => {
       socketRef.current = io(socketUrl, {
         path: "/api/socket",
         autoConnect,
-        transports: ["polling", "websocket"], // Try polling first, then websocket
+        transports: ["websocket", "polling"], // Try websocket first, then polling
         reconnection: true,
         reconnectionAttempts: 10,
         reconnectionDelay: 1000,
@@ -183,19 +183,25 @@ export const useSocket = (options: UseSocketOptions = {}) => {
   };
 
   // Event listeners with duplicate prevention
-  const onPlanUpdated = useCallback((callback: (data: PlanUpdateData) => void) => {
-    if (socketRef.current && !eventListenersRef.current.has("plan-updated")) {
-      socketRef.current.on("plan-updated", callback);
-      eventListenersRef.current.add("plan-updated");
-    }
-  }, []);
+  const onPlanUpdated = useCallback(
+    (callback: (data: PlanUpdateData) => void) => {
+      if (socketRef.current && !eventListenersRef.current.has("plan-updated")) {
+        socketRef.current.on("plan-updated", callback);
+        eventListenersRef.current.add("plan-updated");
+      }
+    },
+    []
+  );
 
-  const onPlanDeleted = useCallback((callback: (data: PlanDeleteData) => void) => {
-    if (socketRef.current && !eventListenersRef.current.has("plan-deleted")) {
-      socketRef.current.on("plan-deleted", callback);
-      eventListenersRef.current.add("plan-deleted");
-    }
-  }, []);
+  const onPlanDeleted = useCallback(
+    (callback: (data: PlanDeleteData) => void) => {
+      if (socketRef.current && !eventListenersRef.current.has("plan-deleted")) {
+        socketRef.current.on("plan-deleted", callback);
+        eventListenersRef.current.add("plan-deleted");
+      }
+    },
+    []
+  );
 
   const onVoteError = useCallback((callback: (data: ErrorData) => void) => {
     if (socketRef.current && !eventListenersRef.current.has("vote-error")) {
@@ -211,12 +217,18 @@ export const useSocket = (options: UseSocketOptions = {}) => {
     }
   }, []);
 
-  const onPlanDeleteError = useCallback((callback: (data: ErrorData) => void) => {
-    if (socketRef.current && !eventListenersRef.current.has("plan-delete-error")) {
-      socketRef.current.on("plan-delete-error", callback);
-      eventListenersRef.current.add("plan-delete-error");
-    }
-  }, []);
+  const onPlanDeleteError = useCallback(
+    (callback: (data: ErrorData) => void) => {
+      if (
+        socketRef.current &&
+        !eventListenersRef.current.has("plan-delete-error")
+      ) {
+        socketRef.current.on("plan-delete-error", callback);
+        eventListenersRef.current.add("plan-delete-error");
+      }
+    },
+    []
+  );
 
   const disconnect = () => {
     if (socketRef.current) {

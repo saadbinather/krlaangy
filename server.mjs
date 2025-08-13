@@ -16,6 +16,12 @@ app.prepare().then(() => {
     try {
       const parsedUrl = parse(req.url, true);
 
+      // Handle Socket.IO requests
+      if (parsedUrl.pathname?.startsWith("/api/socket")) {
+        // Let Socket.IO handle these requests
+        return;
+      }
+
       await handle(req, res, parsedUrl);
     } catch (err) {
       console.error("Error occurred handling", req.url, err);
@@ -30,5 +36,6 @@ app.prepare().then(() => {
   server.listen(port, (err) => {
     if (err) throw err;
     console.log(`> Ready on http://${hostname}:${port}`);
+    console.log(`> Socket.IO server running on /api/socket`);
   });
 });
