@@ -1,5 +1,5 @@
-const { Server: SocketIOServer } = require("socket.io");
-const { PrismaClient } = require("@prisma/client");
+import { Server as SocketIOServer } from "socket.io";
+import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -274,14 +274,19 @@ const initSocketServer = (server) => {
         });
 
         if (!plan) {
-          socket.emit("plan-delete-error", { 
-            error: "Plan not found or you don't have permission to delete it" 
+          socket.emit("plan-delete-error", {
+            error: "Plan not found or you don't have permission to delete it",
           });
           return;
         }
 
         console.log(`🗑️ Deleting plan: ${planId}`);
-        console.log(`🗑️ Plan has ${plan.options.length} options, ${plan.options.reduce((total, opt) => total + opt.votes.length, 0)} votes, and ${plan.comments.length} comments`);
+        console.log(
+          `🗑️ Plan has ${plan.options.length} options, ${plan.options.reduce(
+            (total, opt) => total + opt.votes.length,
+            0
+          )} votes, and ${plan.comments.length} comments`
+        );
 
         // Delete the plan (this will cascade delete all related data)
         await prisma.plan.delete({
@@ -290,7 +295,9 @@ const initSocketServer = (server) => {
           },
         });
 
-        console.log(`✅ Successfully deleted plan: ${planId} and all related data`);
+        console.log(
+          `✅ Successfully deleted plan: ${planId} and all related data`
+        );
 
         // Broadcast plan deletion to all clients in the plan room
         if (io) {
@@ -301,9 +308,12 @@ const initSocketServer = (server) => {
             deletedData: {
               planId,
               optionsCount: plan.options.length,
-              votesCount: plan.options.reduce((total, opt) => total + opt.votes.length, 0),
+              votesCount: plan.options.reduce(
+                (total, opt) => total + opt.votes.length,
+                0
+              ),
               commentsCount: plan.comments.length,
-            }
+            },
           });
         }
 
@@ -311,11 +321,10 @@ const initSocketServer = (server) => {
           planId,
           message: "Plan deleted successfully",
         });
-
       } catch (error) {
         console.error("Error deleting plan:", error);
-        socket.emit("plan-delete-error", { 
-          error: "Failed to delete plan" 
+        socket.emit("plan-delete-error", {
+          error: "Failed to delete plan",
         });
       }
     });
@@ -331,4 +340,4 @@ const initSocketServer = (server) => {
 
 const getSocketIO = () => io;
 
-module.exports = { initSocketServer, getSocketIO };
+export { initSocketServer, getSocketIO };

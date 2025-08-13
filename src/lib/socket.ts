@@ -6,6 +6,57 @@ interface UseSocketOptions {
   planId?: string;
 }
 
+interface PlanUpdateData {
+  planId: string;
+  plan: {
+    id: string;
+    title: string;
+    createdAt: string;
+    createdBy: {
+      id: string;
+      email: string;
+      name: string;
+    };
+    options: Array<{
+      id: string;
+      optionText: string;
+      votes: Array<{
+        id: string;
+        userId: string;
+        user?: {
+          id: string;
+          email: string;
+          name: string;
+        };
+      }>;
+    }>;
+    comments: Array<{
+      id: string;
+      text: string;
+      createdAt: string;
+      user?: {
+        id: string;
+        email: string;
+        name: string;
+      };
+    }>;
+  };
+}
+
+interface PlanDeleteData {
+  planId: string;
+  deletedData: {
+    optionsCount: number;
+    votesCount: number;
+    commentsCount: number;
+  };
+}
+
+interface ErrorData {
+  error: string;
+  message?: string;
+}
+
 export const useSocket = (options: UseSocketOptions = {}) => {
   const { autoConnect = true, planId } = options;
   const [isConnected, setIsConnected] = useState(false);
@@ -81,7 +132,7 @@ export const useSocket = (options: UseSocketOptions = {}) => {
         socketRef.current = null;
       }
     };
-  }, []); // Only run once on mount
+  }, [autoConnect]); // Added autoConnect to dependency array
 
   // Separate effect for joining rooms when connected
   useEffect(() => {
@@ -132,35 +183,35 @@ export const useSocket = (options: UseSocketOptions = {}) => {
   };
 
   // Event listeners with duplicate prevention
-  const onPlanUpdated = useCallback((callback: (data: any) => void) => {
+  const onPlanUpdated = useCallback((callback: (data: PlanUpdateData) => void) => {
     if (socketRef.current && !eventListenersRef.current.has("plan-updated")) {
       socketRef.current.on("plan-updated", callback);
       eventListenersRef.current.add("plan-updated");
     }
   }, []);
 
-  const onPlanDeleted = useCallback((callback: (data: any) => void) => {
+  const onPlanDeleted = useCallback((callback: (data: PlanDeleteData) => void) => {
     if (socketRef.current && !eventListenersRef.current.has("plan-deleted")) {
       socketRef.current.on("plan-deleted", callback);
       eventListenersRef.current.add("plan-deleted");
     }
   }, []);
 
-  const onVoteError = useCallback((callback: (data: any) => void) => {
+  const onVoteError = useCallback((callback: (data: ErrorData) => void) => {
     if (socketRef.current && !eventListenersRef.current.has("vote-error")) {
       socketRef.current.on("vote-error", callback);
       eventListenersRef.current.add("vote-error");
     }
   }, []);
 
-  const onCommentError = useCallback((callback: (data: any) => void) => {
+  const onCommentError = useCallback((callback: (data: ErrorData) => void) => {
     if (socketRef.current && !eventListenersRef.current.has("comment-error")) {
       socketRef.current.on("comment-error", callback);
       eventListenersRef.current.add("comment-error");
     }
   }, []);
 
-  const onPlanDeleteError = useCallback((callback: (data: any) => void) => {
+  const onPlanDeleteError = useCallback((callback: (data: ErrorData) => void) => {
     if (socketRef.current && !eventListenersRef.current.has("plan-delete-error")) {
       socketRef.current.on("plan-delete-error", callback);
       eventListenersRef.current.add("plan-delete-error");
