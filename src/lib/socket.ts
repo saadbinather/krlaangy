@@ -95,6 +95,11 @@ export const useSocket = (options: UseSocketOptions = {}) => {
       // Connection event handlers
       socketRef.current.on("connect", () => {
         console.log("✅ Connected to Socket.IO server");
+        console.log("🔗 Connection details:", {
+          id: socketRef.current?.id,
+          transport: socketRef.current?.io?.engine?.transport?.name,
+          url: socketUrl
+        });
         setIsConnected(true);
         setIsConnecting(false);
       });
@@ -109,6 +114,8 @@ export const useSocket = (options: UseSocketOptions = {}) => {
         console.error("🚨 Error details:", {
           message: error.message,
           name: error.name,
+          url: socketUrl,
+          environment: process.env.NODE_ENV
         });
         setIsConnecting(false);
       });

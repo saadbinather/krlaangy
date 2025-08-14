@@ -38,5 +38,9 @@ app.prepare().then(() => {
     console.log(`> Ready on http://${hostname}:${port}`);
     console.log(`> Socket.IO server running on /api/socket`);
     console.log(`> Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`> Database URL: ${process.env.DATABASE_URL ? 'Set' : 'Not set'}`);
   });
+}).catch((err) => {
+  console.error("Failed to prepare Next.js app:", err);
+  process.exit(1);
 });

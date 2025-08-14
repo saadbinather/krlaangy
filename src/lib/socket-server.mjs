@@ -1,7 +1,19 @@
 import { Server as SocketIOServer } from "socket.io";
 import { PrismaClient } from "@prisma/client";
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  log: ['query', 'info', 'warn', 'error'],
+});
+
+// Test database connection
+prisma.$connect()
+  .then(() => {
+    console.log('✅ Database connected successfully');
+  })
+  .catch((error) => {
+    console.error('❌ Database connection failed:', error);
+    process.exit(1);
+  });
 
 let io = null;
 
